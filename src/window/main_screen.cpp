@@ -9,7 +9,11 @@ int main(){
     auto screen = ScreenInteractive::TerminalOutput();
     int active_screen = 0;
     
-
+    // палитра
+    auto main_bgcolor = Color::RGB(245, 246, 248); //rgb(0, 163, 16)
+    auto main_color = Color::RGB(0, 163, 16);
+    auto second_color = Color::RGB(10, 34, 64);
+    auto mark_color = Color::RGB(91, 254, 153); //
     // MENU WINDOW
     // ==================
 
@@ -22,11 +26,11 @@ int main(){
     };
 
     MenuOption menu_option;
-    menu_option.entries_option.transform = [](const EntryState& state){
+    menu_option.entries_option.transform = [&](const EntryState& state){
         auto element = text(state.label);
         if (state.focused){
-            return element | color(Color::DarkOrange3) | bgcolor(Color::DarkRed);
-        } else return element | color(Color::DarkRed);
+            return element | color(second_color) | bgcolor(mark_color);
+        } else return element | color(main_color);
     };
     menu_option.on_enter = [&] {
         switch (selected_opt){
@@ -52,7 +56,7 @@ int main(){
     
     auto menu_container = Container::Vertical({
         menu
-    }) | color(Color::DarkRed);
+    }) | color(main_color);
 
     // ===================
     // LOGIN WINDOW
@@ -61,6 +65,7 @@ int main(){
     std::string password;
     int login_focus_ind = 0; // 0 - login, 1 - password, 2 - btns
 
+    // Настройка стилей полей ввода
     InputOption input_option_log;
     InputOption input_option_pass;
 
@@ -71,17 +76,30 @@ int main(){
     input_option_pass.on_enter = [&] {login_focus_ind = 2;};
     input_option_pass.password = true;
 
+    input_option_log.transform = [&](InputState state) {
+
+        if (state.focused) {
+            return state.element | color(second_color) | bgcolor(mark_color);
+        } else return state.element | color(main_color);
+    };
+    input_option_pass.transform = [&](InputState state) {
+
+        if (state.focused) {
+            return state.element | color(second_color) | bgcolor(mark_color);
+        } else return state.element | color(main_color);
+    };
+
     auto input_login = Input(&login,"Введите логин: ", input_option_log);
     auto input_password = Input(&password,"Введите пароль: ", input_option_pass);
 
     // стиль кнопки
     ButtonOption btn_config;
-    btn_config.transform = [](const EntryState& state) {
+    btn_config.transform = [&](const EntryState& state) {
         auto element = text(state.label);
         if (state.focused){
-        return element | center | borderRounded | color(Color::DarkOrange3);
+        return element | center | borderRounded | color(second_color);
         }
-        else return element | center | borderRounded | color(Color::DarkRed);
+        else return element | center | borderRounded | color(main_color);
     };
 
 
@@ -121,7 +139,9 @@ int main(){
         }))
         | size(WIDTH, EQUAL, 60) 
         | size(HEIGHT, EQUAL, 15)
-        | center;
+        | center
+        | color(main_color)
+        | bgcolor(main_bgcolor);
     });
 
     // экран login, active_screen = 1
@@ -137,7 +157,9 @@ int main(){
         }))
         | size(WIDTH, EQUAL, 60) 
         | size(HEIGHT, EQUAL, 15)
-        | center;
+        | center
+        | color(main_color)
+        | bgcolor(main_bgcolor);
     });
 
     auto main_tabs = Container::Tab({
