@@ -8,10 +8,10 @@ enum class BankName {
     Tankoff,
     MusorBank
 };
-class Bank{
+class Bank_account{
     private:
         std::string name;
-        int balance;
+        double balance = 0;
     public:
         void setName(std::string name_);
         void setBalance(int cash);

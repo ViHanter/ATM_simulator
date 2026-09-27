@@ -9,11 +9,10 @@ void ATM::insertCard(const Card& card_, const std::string& pin_code_){
     card = card_;  
 }
 
-int ATM::getBalance(){
+double ATM::getBalance(){
     if (!isCardInsert) {std::cout << "ATM_SYS: Insert card.\n" ; return -1;}
-    Bank card_bank = card.getBank();
     
-    return card_bank.getBalance();
+    return card.chekBalance();
 }
 
 void ATM::log(Account& account_,const std::string& pass){

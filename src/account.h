@@ -22,4 +22,7 @@ class Account{
         std::string GetPass();
         std::string GetName();
         bool isRegistred(){return registred;}
+
+        std::string getCard_list();
+        bool isCard_listNull() {return card_list.size() == 0;}
 };

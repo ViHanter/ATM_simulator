@@ -17,7 +17,7 @@ class ATM {
         void log(Account& account_, const std::string& pass);
         bool checkCardInsert() {return isCardInsert;}
 
-        int getBalance();
+        double getBalance();
         bool isLogged(){return account.isRegistred();}
         std::string getStatus();
 };
