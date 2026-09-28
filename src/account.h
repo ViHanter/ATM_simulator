@@ -4,12 +4,13 @@
 #include <vector>
 #include <random>
 #include <iostream>
+#include <map>
 #include "card.h"
 
 class Account{
     private:
         std::string password;
-        std::vector<Card> card_list;
+        std::map<std::string,Card> card_list;
         std::string name;
         bool registred = false;
     
@@ -24,5 +25,7 @@ class Account{
         bool isRegistred(){return registred;}
 
         std::string getCard_list();
+        std::map<std::string,Card> getCard_map();
+        Card regNewCard(BankName Bankname_,std::string& data_ ,std::string& pincode_);
         bool isCard_listNull() {return card_list.size() == 0;}
 };

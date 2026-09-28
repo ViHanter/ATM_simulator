@@ -1,15 +1,19 @@
 #include "atm.h"
 
 void ATM::insertCard(const Card& card_, const std::string& pin_code_){
-    if (!card_.registered()) {std::cout << "ATM_SYS: Card not registered.\n" ; return;}
-    if (isCardInsert) {std::cout << "ATM_SYS: Another card was inserted.\n";return;}
-    if (!card_.checkPin(pin_code_)) {std::cout << "ATM_SYS: Wrong pin.\n";return;}
+    if (!card_.registered()) {}
+    if (isCardInsert) {} //TODO: обработать ошибки
+    if (!card_.checkPin(pin_code_)) {}
 
     isCardInsert = true;
     card = card_;  
 }
+void ATM::eraseCard(){
+    isCardInsert = false;
+    card = Card();
+}
 
-double ATM::getBalance(){
+long long ATM::getBalance(){
     if (!isCardInsert) {std::cout << "ATM_SYS: Insert card.\n" ; return -1;}
     
     return card.chekBalance();

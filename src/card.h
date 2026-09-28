@@ -2,6 +2,7 @@
 
 #include <string>
 #include <random>
+#include <format>
 #include "bank.h"
 
 class Card {
@@ -22,13 +23,14 @@ class Card {
 
         const std::string& getCardNum() const { return card_num; }
         const Bank_account& getBank() const { return bank; }
+        std::string getBankName() {return bank.getName();}
         const std::string& getPin() const { return pin_code; }
         const std::string& getCVV() const { return cvv; }
         const std::string& getData() const { return data; }
         bool registered() const { return isRegistered; }
 
-        double chekBalance() {return bank.getBalance();}
+        long long chekBalance() {return bank.getBalance();}
 
         bool checkPin(const std::string& input) const { return input == pin_code; }
-        std::string getCardInfo();
+        std::string getCardInfo() const;
 };

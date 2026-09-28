@@ -14,10 +14,11 @@ class ATM {
         bool isLog = false;
     public:
         void insertCard(const Card& card_, const std::string& pin_code_);
+        void eraseCard();
         void log(Account& account_, const std::string& pass);
         bool checkCardInsert() {return isCardInsert;}
 
-        double getBalance();
+        long long getBalance();
         bool isLogged(){return account.isRegistred();}
         std::string getStatus();
 };

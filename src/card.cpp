@@ -46,7 +46,7 @@ void Card::regCard(BankName           bank_,
     isRegistered = true;
     bank.setBalance(0);
 }
-std::string Card::getCardInfo(){
+std::string Card::getCardInfo() const {
     if (!isRegistered) return "Not registered.";
     std::string result = card_num + " | " + data + " | " + cvv;
     return result;
