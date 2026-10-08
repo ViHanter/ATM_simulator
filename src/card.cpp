@@ -22,19 +22,19 @@ void Card::regCard(BankName           bank_,
 
     switch (bank_) {
         case BankName::RofloBank:
-            bank.setName("RofloBank");
+            bank_name = "RofloBank";
             card_num = "6767";
             break;
         case BankName::SbeerBank:
-            bank.setName("SbeerBank");
+            bank_name = "SbeerBank";
             card_num = "9999";
             break;
         case BankName::Tankoff:
-            bank.setName("Tankoff");
+            bank_name = "Tankoff";
             card_num = "1444";
             break;
         case BankName::MusorBank:
-            bank.setName("MusorBank");
+            bank_name = "MusorBank";
             card_num = "7777";
             break;
     }
@@ -44,10 +44,16 @@ void Card::regCard(BankName           bank_,
     cvv       = generateDigits(3);
     pin_code  = pin_code_;
     isRegistered = true;
-    bank.setBalance(0);
+    balance = 0;
 }
 std::string Card::getCardInfo() const {
     if (!isRegistered) return "Not registered.";
     std::string result = card_num + " | " + data + " | " + cvv;
     return result;
+}
+
+int Card::push_request_tupup(long long money){
+    //TODO: мб шанс ошибки пополнения
+    balance += money*100;
+    return 0;
 }

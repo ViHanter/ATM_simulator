@@ -17,10 +17,13 @@ int main(){
 
     Account account;
     ATM atm;
+    Card current_card;
 
     std::string login;
     std::string password;
     bool isLog = false;
+    long long transaction = 0;
+    std::string reject_banknotes = "";
 
     int error_code = -1;
     std::string error_log;
@@ -418,26 +421,24 @@ int main(){
 
     int card_choose_idx = 0;
     std::vector<std::string> insert_items;
-    for (auto&[card_num,card] : account.getCard_map()){
-        insert_items.push_back(card_num);
-    }
+
     auto pincode_check_config = InputOption();
-    pincode_input_config.password = true;
-    pincode_input_config.multiline = false;
+    pincode_check_config.password = true;
+    pincode_check_config.multiline = false;
 
     auto choose_card_toInsert = Radiobox(&insert_items,&card_choose_idx);
-    auto check_pincode = Input("Введите пинкод",&pincode,pincode_check_config);
+    auto check_pincode = Input(&pincode,"Введите пинкод",pincode_check_config);
     auto btn_confirm_cardInsert = Button("Вставить карту", [&]{
-        if (!account.isCard_listNull()){
-            last_card = account.getCard_map()[insert_items[card_choose_idx]];
+        if (!account.isCard_listNull() && card_choose_idx >= 0 && card_choose_idx < (int)insert_items.size()){
+            last_card = account.getCard_map().at(insert_items[card_choose_idx]);
             atm.insertCard(last_card,pincode);
-
-            last_card = Card();
+            atm.getCard(current_card);
         } else {} //TODO: обработка ошибок
     },btn_config);
-    auto btn_cancel_cardInsert = Button("Отмена", [&]{
+    auto btn_cancel_cardInsert = Button("Вытащить", [&]{
         card_choose_idx = 0;
         last_card = Card();
+        current_card = Card();
         atm.eraseCard();
         pincode = "";
     }, btn_config);
@@ -447,7 +448,7 @@ int main(){
         pincode = "";
 
         active_screen = 4;
-    });
+    }, btn_config);
 
     auto cardInsert_container = Container::Vertical({
         choose_card_toInsert,
@@ -456,6 +457,121 @@ int main(){
         btn_cancel_cardInsert,
         btn_back_cardInsert
     });
+
+    // ========================
+    // Пополнение / снятие денег
+    // ========================
+
+    int oper_choose_idx = 0;
+    std::vector<std::string> topup_withdrew_items = {
+        "Пополнение",
+        "Снятие"
+    };
+    int money_selected = 0;
+    std::vector<std::string> money_menu_items = {
+        "50",
+        "100",
+        "200",
+        "500",
+        "1000",
+        "2000",
+        "5000"
+    };
+    MenuOption money_menu_option;
+    
+
+    money_menu_option.on_enter = [&] {
+        switch (money_selected){
+            case 0:
+                transaction += 50;
+                atm.put_money_transaction(50);
+            break;
+            case 1:
+                transaction += 100;
+                atm.put_money_transaction(100);
+            break;
+            case 2:
+                transaction += 200;
+                atm.put_money_transaction(200);
+            break;
+            case 3:
+                transaction += 500;
+                atm.put_money_transaction(500);
+            break;
+            case 4:
+                transaction += 1000;
+                atm.put_money_transaction(1000);
+            break;
+            case 5:
+                transaction += 2000;
+                atm.put_money_transaction(2000);
+            break;
+            case 6:
+                transaction += 5000;
+                atm.put_money_transaction(5000);
+            break;
+        }
+    };
+
+    money_menu_option.entries_option.transform = [&](const EntryState& state){
+        auto element = text(state.label);
+        if (state.active){
+            return element | color(second_color) | bgcolor(mark_color);
+        } else return element | color(main_color);
+    };
+    std::string withdrew_cash = "";
+
+    InputOption withdrew_input_config;
+    withdrew_input_config.on_change = [&] {
+
+        if (withdrew_cash.length() > 10) {pincode.pop_back();}
+        
+        if (!pincode.empty() && !std::isdigit(pincode.back())) {
+            pincode.pop_back();
+        }
+    };
+    withdrew_input_config.transform = [&](InputState state) {
+
+        if (state.focused) {
+            return state.element | color(second_color) | bgcolor(mark_color);
+        } else return state.element | color(main_color);
+    };
+    withdrew_input_config.multiline = false;
+    
+    auto topup_confirm = Button("Пополнить", [&]{
+        atm.topup_account_transaction();
+        
+        atm.get_rejected_banknotes(reject_banknotes);
+    },btn_config);
+
+    auto withdrew_confirm = Button("Снять", [&]{
+        if (std::stoi(withdrew_cash)%100 == 0){
+            
+        }
+    });
+    auto topup_backmenu = Button("Назад в меню", [&]{
+        transaction = 0;
+        active_screen = 4;
+        
+        atm.get_rejected_banknotes(reject_banknotes);
+        reject_banknotes = "";
+    },btn_config);
+    auto topup_cancel = Button("Забрать купюры", [&]{
+        transaction = 0;
+        
+        atm.clear_transaction_map();
+        atm.get_rejected_banknotes(reject_banknotes);
+        reject_banknotes = "";
+    },btn_config);
+    
+    
+    auto withdrew_inut = Input(&withdrew_cash,"Введите сумму снятия",withdrew_input_config);
+    auto topup_withdrew_choose = Radiobox(&topup_withdrew_items,&oper_choose_idx);
+    auto money_menu = Menu(&money_menu_items,&money_selected, money_menu_option);
+
+    
+
+    // ========================
 
     // экран menu, active_screen = 0
     auto start_menu_screen = Renderer(start_menu_container, [&] {
@@ -534,6 +650,9 @@ int main(){
 
     //экран главный, acrive_screen = 4
     auto main_screen = Renderer(main_container, [&]{
+        static constexpr std::string_view err = "карта не вставлена";
+        std::string card_num {atm.checkCardInsert() ? current_card.getCardNum() : err};
+
         return window(text("ATM VICTOR"), vbox({
             separator(),
             text("Привет, " + account.GetName()) | color(main_color),
@@ -541,6 +660,7 @@ int main(){
             separator(),
             text("Ваши карты: " + account.getCard_list()) | color(account.isCard_listNull() ? Color::Red : main_color),
             separator(),
+            text("Карта: " + card_num) | color(current_card.registered() ? Color::Green : Color::Red),
             main_menu->Render(),
             separator(),
             back_to_menu_btn_main->Render() 
@@ -583,27 +703,36 @@ int main(){
     // экран вставки карты, active_screen = 6
     auto cardInsert_screen = Renderer(cardInsert_container, [&]{
         static constexpr std::string_view err = "карта не вставлена";
+        insert_items.clear();
+        for (auto&[card_num,card] : account.getCard_map()){
+            insert_items.push_back(card_num);
+        }
 
-        std::string card_num {atm.checkCardInsert() ? last_card.getCardNum() : err};
-        std::string card_data {atm.checkCardInsert() ? last_card.getData() : err};
-        std::string card_cvv {atm.checkCardInsert() ? last_card.getCVV() : err};
-        std::string card_bank {atm.checkCardInsert() ? last_card.getBankName() : err};
+        std::string card_num {atm.checkCardInsert() ? current_card.getCardNum() : err};
+        std::string card_data {atm.checkCardInsert() ? current_card.getData() : err};
+        std::string card_cvv {atm.checkCardInsert() ? current_card.getCVV() : err};
+        std::string card_bank {atm.checkCardInsert() ? current_card.getBankName() : err};
         return window(text("Insert card"), vbox({
             separator(),
-            text("Выберите карту."),
-            choose_card_toInsert->Render(),
+            text("Выберите карту.") | color(main_color),
+            choose_card_toInsert->Render() | color(main_color),
             check_pincode->Render(),
             separator(),
             btn_confirm_cardInsert->Render(),
             btn_cancel_cardInsert->Render(),
             separator(),
-            text("Карта: " + card_num) | color(last_card.registered() ? Color::Green : Color::Red),
-            text("Банк: " + card_bank) | color(last_card.registered() ? Color::Green : Color::Red),
-            text("Дата: " + card_data) | color(last_card.registered() ? Color::Green : Color::Red),
-            text("CVV: " + card_cvv) | color(last_card.registered() ? Color::Green : Color::Red),
+            text("Карта: " + card_num) | color(current_card.registered() ? Color::Green : Color::Red),
+            text("Банк: " + card_bank) | color(current_card.registered() ? Color::Green : Color::Red),
+            text("Дата: " + card_data) | color(current_card.registered() ? Color::Green : Color::Red),
+            text("CVV: " + card_cvv) | color(current_card.registered() ? Color::Green : Color::Red),
             separator(),
             btn_back_cardInsert->Render() | center
-        }));
+        }))
+        | size(WIDTH, EQUAL, 70) 
+        | size(HEIGHT, EQUAL, 25)
+        | center
+        | color(main_color)
+        | bgcolor(main_bgcolor);
     });
 
     auto main_tabs = Container::Tab({

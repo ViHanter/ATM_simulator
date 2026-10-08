@@ -29,7 +29,7 @@ std::string Account::GetPass(){
 std::string Account::GetName(){
     return name;
 }
-std::map<std::string,Card> Account::getCard_map(){
+const std::map<std::string,Card>& Account::getCard_map(){
     return card_list;
 }
 std::string Account::getCard_list(){
@@ -50,4 +50,14 @@ Card Account::regNewCard(BankName Bankname_,std::string& data_ ,std::string& pin
     Card new_card;
     new_card.regCard(Bankname_,data_,pincode_);
     return new_card;
+}
+
+void Account::init_money_bag(){
+    money_bag[50] = 5;
+    money_bag[100] = 5;
+    money_bag[200] = 5;
+    money_bag[500] = 5;
+    money_bag[1000] = 5;
+    money_bag[2000] = 5;
+    money_bag[5000] = 5;
 }

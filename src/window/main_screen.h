@@ -8,9 +8,9 @@
 #include <vector>
 #include <map>
 #include <ctime>
+#include <random>
 
 #include "account.h"
 #include "atm.h"
-#include "bank.h"
 #include "card.h"
 
