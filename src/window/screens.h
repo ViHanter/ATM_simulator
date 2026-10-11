@@ -156,3 +156,20 @@ class TopupWithdrawScreen {
         ftxui::Component topup_withdrew_container_;
         ftxui::Component renderer_;
 };
+
+// Экран 8: история операций
+class HistoryScreen {
+    public:
+        explicit HistoryScreen(AppContext& ctx);
+        ftxui::Component renderer() const {return renderer_;}
+    private:
+        AppContext& ctx_;
+
+        std::vector<std::string> history_items_;
+        int history_selected_ = 0;
+        int history_focus_ind_ = 0;
+        ftxui::Component history_menu_;
+        ftxui::Component back_to_menu_btn_history_;
+        ftxui::Component history_container_;
+        ftxui::Component renderer_;
+};

@@ -1,4 +1,5 @@
 #include "atm.h"
+#include "db.h"
 #include <vector>
 
 ATM::ATM(){
@@ -74,14 +75,14 @@ long long ATM::topup_account_transaction(){
     long long accepted = 0;
 
     for (const auto&[type,cnt] : transaction_map){
-        if (account) account->take_banknotes(type, cnt); // купюры достаются из кошелька владельца
+        if (account) account->take_banknotes(type, cnt);
         for (int i = 0; i < cnt; ++i){
-            if (roll_luck(gen) < 6){ // 5% - купюра не распознана
+            if (roll_luck(gen) < 6){
                 transaction_error_map[type] += 1;
-                if (account) account->add_banknotes(type, 1); // непринятая купюра возвращается
+                if (account) account->add_banknotes(type, 1);
             } else {
                 accepted += type;
-                atm_money_bag[type] += 1; // принятая купюра попадает в кассету банкомата
+                atm_money_bag[type] += 1;
             }
         }
     }
@@ -113,19 +114,13 @@ bool ATM::pick_banknotes(long long money, std::map<int,int>& out){
         total += 1LL * type * cnt;
     }
     if (money > total) return false;
-
-    // can[s]  - сумму s можно собрать из купюр
-    // from[s] - предыдущая сумма на пути к s
-    // bill[s] - купюра, которой получили сумму s
     std::vector<bool> can(money + 1, false);
     std::vector<long long> from(money + 1, -1);
     std::vector<int> bill(money + 1, -1);
     can[0] = true;
 
-    // сначала крупные номиналы - чтобы предпочтение отдавалось меньшему числу купюр
     for (auto it = atm_money_bag.rbegin(); it != atm_money_bag.rend(); ++it){
         const auto&[type,avail] = *it;
-        // used[s] - сколько купюр данного номинала на пути к сумме s
         std::vector<int> used(money + 1, 0);
         for (long long s = type; s <= money; ++s){
             if (can[s] || !can[s - type]) continue;
@@ -168,7 +163,7 @@ WithdrawResult ATM::withdrew_transaction(long long money){
 
     for (const auto&[type,cnt] : notes){
         atm_money_bag[type] -= cnt;
-        if (account) account->add_banknotes(type, cnt); // выданные купюры уходят владельцу
+        if (account) account->add_banknotes(type, cnt);
     }
 
     card->withdrew(money);
@@ -181,6 +176,34 @@ void ATM::get_dispensed_banknotes(std::string& dispensed){
         dispensed += std::to_string(type) + "x" + std::to_string(cnt) + ' ';
     }
     dispensed_map.clear();
+}
+
+bool ATM::dbLoadMoneyBag(Database& db){
+    if (!db.ok()) return false;
+
+    Database::Result res = db.exec("SELECT nominal, count FROM atm_money_bag;");
+    if (!res.ok) return false;
+
+    if (res.empty()) return dbSaveMoneyBag(db);
+
+    for (const auto& row : res.rows) {
+        atm_money_bag[std::stoi(row[0])] = std::stoi(row[1]);
+    }
+    return true;
+}
+
+bool ATM::dbSaveMoneyBag(Database& db){
+    if (!db.ok()) return false;
+
+    std::string sql = "INSERT INTO atm_money_bag(nominal, count) VALUES ";
+    size_t i = 0;
+    for (const auto& [nominal, cnt] : atm_money_bag) {
+        if (i++) sql += ", ";
+        sql += "(" + std::to_string(nominal) + ", " + std::to_string(cnt) + ")";
+    }
+    sql += " ON CONFLICT (nominal) DO UPDATE SET count = EXCLUDED.count;";
+
+    return db.exec(sql).ok;
 }
 
 std::string withdrawResultText(WithdrawResult result){

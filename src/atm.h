@@ -17,6 +17,8 @@ enum class WithdrawResult {
 
 std::string withdrawResultText(WithdrawResult result);
 
+class Database;
+
 class ATM {
     private:
         Account* account = nullptr;
@@ -55,4 +57,8 @@ class ATM {
         bool pick_banknotes(long long money, std::map<int,int>& out);
         WithdrawResult withdrew_transaction(long long money);
         void get_dispensed_banknotes(std::string& dispensed);
+
+        // ---- Работа с БД (касса банкомата) ----
+        bool dbLoadMoneyBag(Database& db);
+        bool dbSaveMoneyBag(Database& db);
 };

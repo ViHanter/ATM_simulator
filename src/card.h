@@ -28,6 +28,14 @@ class Card {
                      const std::string& data_,
                      const std::string& pin_code_);
 
+        // восстановить карту из записи бд
+        void restore(const std::string& card_num_,
+                     const std::string& bank_name_,
+                     const std::string& cvv_,
+                     const std::string& data_,
+                     long long          balance_,
+                     const std::string& pin_code_);
+
         const std::string& getCardNum() const { return card_num; }
         std::string getBankName() const {return bank_name;}
         const std::string& getPin() const { return pin_code; }

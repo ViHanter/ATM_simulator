@@ -18,6 +18,7 @@ int main(){
     RegCardScreen reg_card_screen(ctx);
     CardInsertScreen card_insert_screen(ctx);
     TopupWithdrawScreen topup_withdrew_screen(ctx);
+    HistoryScreen history_screen(ctx);
 
     auto main_tabs = Container::Tab({
         start_menu_screen.renderer(),
@@ -27,7 +28,8 @@ int main(){
         main_menu_screen.renderer(),
         reg_card_screen.renderer(),
         card_insert_screen.renderer(),
-        topup_withdrew_screen.renderer()
+        topup_withdrew_screen.renderer(),
+        history_screen.renderer()
     },&ctx.active_screen);
 
     ctx.screen.Loop(main_tabs);

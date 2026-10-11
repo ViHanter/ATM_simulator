@@ -46,6 +46,22 @@ void Card::regCard(BankName           bank_,
     isRegistered = true;
     balance = 0;
 }
+void Card::restore(const std::string& card_num_,
+                   const std::string& bank_name_,
+                   const std::string& cvv_,
+                   const std::string& data_,
+                   long long          balance_,
+                   const std::string& pin_code_)
+{
+    card_num     = card_num_;
+    bank_name    = bank_name_;
+    cvv          = cvv_;
+    data         = data_;
+    balance      = balance_;
+    pin_code     = pin_code_;
+    isRegistered = true;
+}
+
 std::string Card::getCardInfo() const {
     if (!isRegistered) return "Not registered.";
     std::string result = card_num + " | " + data + " | " + cvv;

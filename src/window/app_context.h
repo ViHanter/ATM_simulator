@@ -12,6 +12,7 @@
 #include "account.h"
 #include "atm.h"
 #include "card.h"
+#include "db.h"
 
 // ==================
 // Общее состояние приложения (разделяется всеми экранами)
@@ -31,6 +32,7 @@ struct AppContext {
     Account account;
     ATM atm;
     Card current_card;
+    Database db;
 
     std::string login;
     std::string password;
@@ -71,6 +73,16 @@ struct AppContext {
         active_screen = 4;
     }
 
+    // Сбросить вставленную в банкомат карту (например, при смене аккаунта)
+    void reset_inserted_card() {
+        atm.eraseCard();
+        current_card = Card();
+        last_card = Card();
+        transaction = 0;
+        reject_banknotes = "";
+        atm.clear_transaction_map();
+    }
+
     AppContext() {
         std::time_t now = std::time(nullptr);
         std::tm* local_time = std::localtime(&now);
@@ -86,5 +98,13 @@ struct AppContext {
             }
             else return element | ftxui::center | ftxui::borderRounded | ftxui::color(main_color);
         };
+
+        if (!db.ok()) {
+            error_log = "Нет соединения с БД: " + db.error();
+        } else if (!db.ensureSchema()) {
+            error_log = "Ошибка инициализации БД: " + db.error();
+        } else {
+            atm.dbLoadMoneyBag(db);
+        }
     }
 };

@@ -149,11 +149,20 @@ LoginScreen::LoginScreen(AppContext& ctx) : ctx_(ctx) {
             ctx_.error_log = "Неккоректный ввод.";
         } // неккоректный ввод
         else {
-            //TODO: доделать вход с бд
-            ctx_.password = "";
-            ctx_.login = "";
+            if (ctx_.account.dbLogin(ctx_.db, ctx_.login, ctx_.password)) {
+                ctx_.reset_inserted_card();
+                ctx_.atm.log(ctx_.account, ctx_.password);
+                ctx_.isLog = true;
+                ctx_.error_log = "";
 
-            ctx_.go_start_menu();
+                ctx_.password = "";
+                ctx_.login = "";
+
+                ctx_.go_start_menu();
+            } else {
+                ctx_.error_code = 1;
+                ctx_.error_log = "Неверный логин или пароль.";
+            }
         }
     },ctx_.btn_config);
     auto back_to_menu_btn_log = Button("Назад в меню", [&] {ctx_.go_start_menu();},ctx_.btn_config);
@@ -241,15 +250,21 @@ RegisterScreen::RegisterScreen(AppContext& ctx) : ctx_(ctx) {
             ctx_.error_log = "Пароли не совпадают.";
         }
         else {
-            ctx_.account.regAccount(ctx_.login,ctx_.password);
-            ctx_.atm.log(ctx_.account,ctx_.password);
+            if (ctx_.account.dbRegister(ctx_.db, ctx_.login, ctx_.password)) {
+                ctx_.reset_inserted_card();
+                ctx_.atm.log(ctx_.account, ctx_.password);
 
-            ctx_.isLog = true;
+                ctx_.isLog = true;
+                ctx_.error_log = "";
 
-            ctx_.login = "";
-            ctx_.password = "";
-            repeat_pass_ = "";
-            ctx_.go_start_menu();
+                ctx_.login = "";
+                ctx_.password = "";
+                repeat_pass_ = "";
+                ctx_.go_start_menu();
+            } else {
+                ctx_.error_code = 1;
+                ctx_.error_log = "Логин уже занят или БД недоступна.";
+            }
         }
     },ctx_.btn_config);
 
@@ -335,7 +350,8 @@ MainMenuScreen::MainMenuScreen(AppContext& ctx, StartMenuScreen& start_menu_scre
     main_menu_items_ = {
         "1. Зарегестрировать карту",
         "2. Вставить карту",
-        "3. Пополнение / снятие"
+        "3. Пополнение / снятие",
+        "4. История операций"
     };
 
     MenuOption main_menu_option;
@@ -355,6 +371,10 @@ MainMenuScreen::MainMenuScreen(AppContext& ctx, StartMenuScreen& start_menu_scre
             if (ctx_.atm.checkCardInsert()) {
                 ctx_.active_screen = 7;
             } else ctx_.error_log = "Сначала вставьте карту.";
+            break;
+            case 3:
+            // transaction history
+            ctx_.active_screen = 8;
             break;
         }
     };
@@ -378,6 +398,10 @@ MainMenuScreen::MainMenuScreen(AppContext& ctx, StartMenuScreen& start_menu_scre
         }
         if (event == Event::Character('3')){
             main_selected_opt_ = 2;
+            changed = true;
+        }
+        if (event == Event::Character('4')){
+            main_selected_opt_ = 3;
             changed = true;
         }
 
@@ -475,11 +499,21 @@ RegCardScreen::RegCardScreen(AppContext& ctx) : ctx_(ctx) {
     }, ctx_.btn_config);
 
     btn_confirm_card_ = Button("Подтвердить", [&]{
+        if (!ctx_.last_card.registered()) {
+            ctx_.error_log = "Сначала сгенерируйте карту.";
+            return;
+        }
+        if (!ctx_.account.dbAddCard(ctx_.db, ctx_.last_card)) {
+            ctx_.error_log = "Не удалось сохранить карту (номер занят или БД недоступна).";
+            return;
+        }
+
         ctx_.account.addCard(ctx_.last_card);
 
         ctx_.last_card = Card();
         ctx_.pincode = "";
 
+        ctx_.error_log = "";
         ctx_.go_main_menu();
     }, ctx_.btn_config);
     btn_cancel_card_ = Button("Отмена", [&]{
@@ -706,6 +740,13 @@ TopupWithdrawScreen::TopupWithdrawScreen(AppContext& ctx) : ctx_(ctx) {
         ctx_.atm.get_rejected_banknotes(rejected);
         ctx_.atm.getCard(ctx_.current_card);
 
+        ctx_.account.dbUpdateBalance(ctx_.db, ctx_.current_card.getCardNum(),
+                                     ctx_.current_card.chekBalance());
+        ctx_.account.dbSaveMoneyBag(ctx_.db);
+        ctx_.account.dbAddTransaction(ctx_.db, ctx_.current_card.getCardNum(),
+                                      "topup", accepted, rejected);
+        ctx_.atm.dbSaveMoneyBag(ctx_.db);
+
         status_ = "Зачислено: " + std::to_string(accepted) + " руб.";
         if (!rejected.empty()) status_ += " | не принято: " + rejected;
 
@@ -730,6 +771,13 @@ TopupWithdrawScreen::TopupWithdrawScreen(AppContext& ctx) : ctx_(ctx) {
             std::string dispensed;
             ctx_.atm.get_dispensed_banknotes(dispensed);
             ctx_.atm.getCard(ctx_.current_card);
+
+            ctx_.account.dbUpdateBalance(ctx_.db, ctx_.current_card.getCardNum(),
+                                         ctx_.current_card.chekBalance());
+            ctx_.account.dbSaveMoneyBag(ctx_.db);
+            ctx_.account.dbAddTransaction(ctx_.db, ctx_.current_card.getCardNum(),
+                                          "withdraw", amount, dispensed);
+            ctx_.atm.dbSaveMoneyBag(ctx_.db);
 
             status_ = "Выдано: " + std::to_string(amount) + " руб. (" + dispensed + ")";
             withdrew_cash_ = "";
@@ -840,6 +888,67 @@ TopupWithdrawScreen::TopupWithdrawScreen(AppContext& ctx) : ctx_(ctx) {
         }))
         | size(WIDTH, EQUAL, 72)
         | size(HEIGHT, EQUAL, 30)
+        | center
+        | color(ctx_.main_color)
+        | bgcolor(ctx_.main_bgcolor);
+    });
+}
+
+// ========================
+// История операций
+// ========================
+
+HistoryScreen::HistoryScreen(AppContext& ctx) : ctx_(ctx) {
+    MenuOption history_option;
+    history_option.entries_option.transform = [&](const EntryState& state){
+        auto element = text(state.label);
+        if (state.active){
+            return element | color(ctx_.second_color) | bgcolor(ctx_.mark_color);
+        } else return element | color(ctx_.main_color);
+    };
+    history_menu_ = Menu(&history_items_, &history_selected_, history_option);
+    back_to_menu_btn_history_ = Button("Назад в меню", [&]{
+        ctx_.go_main_menu();
+    }, ctx_.btn_config);
+
+    history_container_ = Container::Vertical({
+        history_menu_,
+        back_to_menu_btn_history_
+    }, &history_focus_ind_);
+
+    ctx_.reset_on_main_menu.push_back([this]{
+        history_selected_ = 0;
+        history_focus_ind_ = 0;
+    });
+
+    renderer_ = Renderer(history_container_, [&]{
+        history_items_.clear();
+        if (ctx_.account.isRegistred()) {
+            for (const auto& entry : ctx_.account.getTransactionHistory(ctx_.db)) {
+                bool topup = (entry.type == "topup");
+                std::string label = entry.created_at + "  "
+                    + (topup ? "Пополнение " : "Снятие ")
+                    + (topup ? "+" : "-")
+                    + std::to_string(entry.amount) + " руб.";
+                if (!entry.card_num.empty()) label += "  карта " + entry.card_num;
+                if (!entry.detail.empty())    label += "  [" + entry.detail + "]";
+                history_items_.push_back(label);
+            }
+        }
+        if (history_items_.empty()) history_items_.push_back("Операций пока нет.");
+        if (history_selected_ >= (int)history_items_.size()) history_selected_ = 0;
+
+        std::string account_name = ctx_.account.isRegistred() ? ctx_.account.GetName() : "неавторизован";
+
+        return window(text("История операций"), vbox({
+            text("Аккаунт: " + account_name) | color(ctx_.main_color),
+            separator(),
+            history_menu_->Render() | vscroll_indicator | frame | size(HEIGHT, LESS_THAN, 12),
+            separator(),
+            back_to_menu_btn_history_->Render() | center
+        }))
+        | size(WIDTH, EQUAL, 72)
+        | size(HEIGHT, EQUAL, 24)
         | center
         | color(ctx_.main_color)
         | bgcolor(ctx_.main_bgcolor);
