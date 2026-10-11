@@ -1,5 +1,18 @@
 #include "account.h"
 
+Account::Account(){
+    init_money_bag();
+}
+
+void Account::init_money_bag(){
+    money_bag[50] = 5;
+    money_bag[100] = 5;
+    money_bag[200] = 5;
+    money_bag[500] = 5;
+    money_bag[1000] = 5;
+    money_bag[2000] = 5;
+    money_bag[5000] = 5;
+}
 void Account::regAccount(
     const std::string& name_,
     const std::string& password_) 
@@ -52,12 +65,23 @@ Card Account::regNewCard(BankName Bankname_,std::string& data_ ,std::string& pin
     return new_card;
 }
 
-void Account::init_money_bag(){
-    money_bag[50] = 5;
-    money_bag[100] = 5;
-    money_bag[200] = 5;
-    money_bag[500] = 5;
-    money_bag[1000] = 5;
-    money_bag[2000] = 5;
-    money_bag[5000] = 5;
+int Account::get_banknote_cnt(int type_money){
+    auto it = money_bag.find(type_money);
+    return it == money_bag.end() ? 0 : it->second;
 }
+void Account::take_banknotes(int type_money, int cnt_banknotes){
+    int cur = get_banknote_cnt(type_money);
+    money_bag[type_money] = (cur > cnt_banknotes) ? cur - cnt_banknotes : 0;
+}
+void Account::add_banknotes(int type_money, int cnt_banknotes){
+    money_bag[type_money] += cnt_banknotes;
+}
+std::string Account::getMoneyBagList(){
+    std::string result;
+    for (const auto&[type,cnt] : money_bag){
+        if (cnt > 0) result += std::to_string(type) + "x" + std::to_string(cnt) + ' ';
+    }
+    if (result.empty()) result = "нет купюр";
+    return result;
+}
+

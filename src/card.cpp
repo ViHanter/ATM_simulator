@@ -54,6 +54,12 @@ std::string Card::getCardInfo() const {
 
 int Card::push_request_tupup(long long money){
     //TODO: мб шанс ошибки пополнения
-    balance += money*100;
+    balance += money;
     return 0;
+}
+
+void Card::withdrew(long long money){
+    if (money > 0 && money <= balance) {
+        balance -= money;
+    }
 }

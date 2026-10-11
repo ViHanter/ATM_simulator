@@ -29,13 +29,13 @@ class Card {
                      const std::string& pin_code_);
 
         const std::string& getCardNum() const { return card_num; }
-        std::string getBankName() {return bank_name;}
+        std::string getBankName() const {return bank_name;}
         const std::string& getPin() const { return pin_code; }
         const std::string& getCVV() const { return cvv; }
         const std::string& getData() const { return data; }
         bool registered() const { return isRegistered; }
 
-        long long chekBalance() {return balance;}
+        long long chekBalance() const {return balance;}
 
         bool checkPin(const std::string& input) const { return input == pin_code; }
         int push_request_tupup(long long money);

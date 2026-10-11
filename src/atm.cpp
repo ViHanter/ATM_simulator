@@ -6,70 +6,89 @@ ATM::ATM(){
 }
 
 void ATM::init_money_bag(){
-    atm_money_bag[50] = 5;
-    atm_money_bag[100] = 5;
-    atm_money_bag[200] = 5;
-    atm_money_bag[500] = 5;
-    atm_money_bag[1000] = 5;
-    atm_money_bag[2000] = 5;
-    atm_money_bag[5000] = 5;
+    atm_money_bag[50] = 500;
+    atm_money_bag[100] = 500;
+    atm_money_bag[200] = 500;
+    atm_money_bag[500] = 500;
+    atm_money_bag[1000] = 500;
+    atm_money_bag[2000] = 500;
+    atm_money_bag[5000] = 500;
 }
 
-int ATM::insertCard(const Card& card_, const std::string& pin_code_){
-    if (!card_.registered()) {};
-    if (isCardInsert) {}; //TODO: обработать ошибки
+int ATM::insertCard(Card& card_, const std::string& pin_code_){
+    if (!card_.registered()) {return 2;}
     if (!card_.checkPin(pin_code_)) {return 1;}
 
+    if (isCardInsert) eraseCard();
+
     isCardInsert = true;
-    card = card_;  
+    card = &card_;
     return 0;
 }
 void ATM::eraseCard(){
     isCardInsert = false;
-    card = Card();
+    card = nullptr;
 }
 
 long long ATM::getBalance(){
-    if (!isCardInsert) {return -1;}
-    
-    return card.chekBalance();
+    if (!isCardInsert || !card) {return -1;}
+
+    return card->chekBalance();
+}
+
+void ATM::getCard(Card& card_){
+    if (card) card_ = *card;
 }
 
 void ATM::log(Account& account_,const std::string& pass){
     if (account_.GetPass() == pass) {
-        account = account_;
+        account = &account_;
     }
 }
 
+bool ATM::isLogged(){
+    return account != nullptr && account->isRegistred();
+}
+
 std::string ATM::getStatus(){
-    std::string result = "Account: " + account.GetName() + '\n';
-    if (isCardInsert) {
-        result += "Card: " + card.getCardNum() + '\n' + "isCardInsert: True";
+    std::string account_name = account ? account->GetName() : "неавторизован";
+    std::string result = "Account: " + account_name + '\n';
+    if (isCardInsert && card) {
+        result += "Card: " + card->getCardNum() + '\n' + "isCardInsert: True";
     } else result += "isCardInsert: False";
 
     return result;
 }
 long long ATM::put_money_transaction(int type_money){
-    transaction_map[type_money]++; 
+    // купюра вставлена в приёмник, но ещё не проверена
+    transaction_map[type_money]++;
     return type_money;
 }
-void ATM::topup_account_transaction(){
-    std::random_device rd; 
-    std::mt19937 gen(rd()); 
-    std::uniform_int_distribution<> roll_luck(1, 100); 
-    long long result = 0;
 
-    for (auto[type,cnt] : transaction_map){
-        for (int i=0;i<cnt;i++){
-            int chance = roll_luck(gen);
-            if (chance<6){
-                result +=type;
-            } else transaction_error_map[type] +=1;
+long long ATM::topup_account_transaction(){
+    if (!isCardInsert || !card) return 0;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> roll_luck(1, 100);
+    long long accepted = 0;
+
+    for (const auto&[type,cnt] : transaction_map){
+        if (account) account->take_banknotes(type, cnt); // купюры достаются из кошелька владельца
+        for (int i = 0; i < cnt; ++i){
+            if (roll_luck(gen) < 6){ // 5% - купюра не распознана
+                transaction_error_map[type] += 1;
+                if (account) account->add_banknotes(type, 1); // непринятая купюра возвращается
+            } else {
+                accepted += type;
+                atm_money_bag[type] += 1; // принятая купюра попадает в кассету банкомата
+            }
         }
     }
     transaction_map.clear();
-    
-    int status = card.push_request_tupup(result);
+
+    if (accepted > 0) card->push_request_tupup(accepted);
+    return accepted;
 }
 void ATM::get_rejected_banknotes(std::string& rejected){
     for (auto[type,cnt] : transaction_error_map){
@@ -138,14 +157,23 @@ bool ATM::can_withdraw(long long money){
     return pick_banknotes(money, tmp);
 }
 
-void ATM::withdrew_transaction(long long money){
-    if (!pick_banknotes(money, dispensed_map)) {
-        dispensed_map.clear();
-        return;
-    }
-    for (const auto&[type,cnt] : dispensed_map){
+WithdrawResult ATM::withdrew_transaction(long long money){
+    if (!isCardInsert || !card) return WithdrawResult::NoCard;
+
+    if (money <= 0 || money % 50 != 0) return WithdrawResult::InvalidAmount;
+    if (card->chekBalance() < money) return WithdrawResult::NotEnoughBalance;
+
+    std::map<int,int> notes;
+    if (!pick_banknotes(money, notes)) return WithdrawResult::NotEnoughCash;
+
+    for (const auto&[type,cnt] : notes){
         atm_money_bag[type] -= cnt;
+        if (account) account->add_banknotes(type, cnt); // выданные купюры уходят владельцу
     }
+
+    card->withdrew(money);
+    dispensed_map = notes;
+    return WithdrawResult::Success;
 }
 
 void ATM::get_dispensed_banknotes(std::string& dispensed){
@@ -153,4 +181,20 @@ void ATM::get_dispensed_banknotes(std::string& dispensed){
         dispensed += std::to_string(type) + "x" + std::to_string(cnt) + ' ';
     }
     dispensed_map.clear();
+}
+
+std::string withdrawResultText(WithdrawResult result){
+    switch (result){
+        case WithdrawResult::Success:
+            return "Успешно";
+        case WithdrawResult::NoCard:
+            return "Карта не вставлена.";
+        case WithdrawResult::InvalidAmount:
+            return "Некорректная сумма (кратно 50).";
+        case WithdrawResult::NotEnoughBalance:
+            return "Недостаточно средств на карте.";
+        case WithdrawResult::NotEnoughCash:
+            return "В банкомате нет нужных купюр.";
+    }
+    return "Неизвестная ошибка.";
 }
